@@ -1,24 +1,29 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement; // нужно для перезапуска сцены
 
 public class PlayerController : MonoBehaviour
 {
     [Header("Настройки движения")]
-    public float maxSpeed = 5f;        // Максимальная скорость
-    public float acceleration = 30f;   // Плавность разгона
+    public float maxSpeed = 5f;
+    public float acceleration = 30f;
+
+    [Header("Характеристики")]
+    public int maxLives = 3;
+    private int currentLives;
+    private int score = 0;
 
     private Rigidbody2D rb;
     private Vector2 moveInput;
 
     void Start()
     {
-        // Получаем компонент физики при старте
         rb = GetComponent<Rigidbody2D>();
+        currentLives = maxLives; // при старте даем полное здоровье
     }
 
     void Update()
     {
-        // Считываем нажатия клавиш (WASD или стрелки)
         float moveX = 0f;
         float moveY = 0f;
 
@@ -30,14 +35,48 @@ public class PlayerController : MonoBehaviour
             if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) moveX = -1f;
         }
 
-        // Нормализуем вектор, чтобы по диагонали скорость не была выше
         moveInput = new Vector2(moveX, moveY).normalized;
     }
 
     void FixedUpdate()
     {
-        // Применяем физику движения (плавный разгон и торможение)
         Vector2 targetVelocity = moveInput * maxSpeed;
         rb.linearVelocity = Vector2.MoveTowards(rb.linearVelocity, targetVelocity, acceleration * Time.fixedDeltaTime);
+    }
+
+
+    public void TakeDamage(int damage)
+    {
+        currentLives -= damage;
+        Debug.Log("Получен урон! Осталось жизней: " + currentLives);
+
+        if (currentLives <= 0)
+        {
+            RestartLevel();
+        }
+    }
+
+    public void Heal(int amount)
+    {
+        currentLives += amount;
+        if (currentLives > maxLives) currentLives = maxLives; // Не даем превысить максимум
+        Debug.Log("Полечение! Жизней: " + currentLives);
+    }
+
+    public void AddScore(int amount)
+    {
+        score += amount;
+        Debug.Log("Очки: " + score);
+    }
+
+    public void ResetSpeed()
+    {
+        maxSpeed /= 1.5f; // Возвращаем исходную скорость (если было ускорение)
+    }
+
+    private void RestartLevel()
+    {
+        // Перезапускаем текущую сцену
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }
