@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement; // нужно для перезапуска сцены
+using UnityEngine.SceneManagement;
 
 public class PlayerController : MonoBehaviour
 {
@@ -19,23 +19,51 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-        currentLives = maxLives; // при старте даем полное здоровье
+        currentLives = maxLives;
+
+        // Включаем гироскоп (полное имя класса, чтобы не было ошибки)
+        if (UnityEngine.InputSystem.Gyroscope.current != null)
+        {
+            InputSystem.EnableDevice(UnityEngine.InputSystem.Gyroscope.current);
+        }
     }
 
     void Update()
     {
-        float moveX = 0f;
-        float moveY = 0f;
+        Vector2 keyboardInput = Vector2.zero;
 
+        // 1. Ввод с клавиатуры
         if (Keyboard.current != null)
         {
+            float moveX = 0f;
+            float moveY = 0f;
             if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed) moveY = 1f;
             if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) moveY = -1f;
             if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) moveX = 1f;
             if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) moveX = -1f;
+            keyboardInput = new Vector2(moveX, moveY);
         }
 
-        moveInput = new Vector2(moveX, moveY).normalized;
+        // 2. Ввод с джойстика
+        Vector2 joystickInput = Vector2.zero;
+        if (Gamepad.current != null)
+        {
+            joystickInput = Gamepad.current.leftStick.ReadValue();
+        }
+
+        // 3. Ввод с гироскопа
+        Vector2 gyroInput = Vector2.zero;
+        if (UnityEngine.InputSystem.Gyroscope.current != null && UnityEngine.InputSystem.Gyroscope.current.enabled)
+        {
+            Vector3 angularVel = UnityEngine.InputSystem.Gyroscope.current.angularVelocity.ReadValue();
+            gyroInput = new Vector2(angularVel.y, angularVel.x) * 0.5f;
+        }
+
+        // Выбираем самый сильный сигнал
+        if (joystickInput.magnitude > keyboardInput.magnitude) keyboardInput = joystickInput;
+        if (gyroInput.magnitude > keyboardInput.magnitude) keyboardInput = gyroInput;
+
+        moveInput = keyboardInput.normalized;
     }
 
     void FixedUpdate()
@@ -43,7 +71,6 @@ public class PlayerController : MonoBehaviour
         Vector2 targetVelocity = moveInput * maxSpeed;
         rb.linearVelocity = Vector2.MoveTowards(rb.linearVelocity, targetVelocity, acceleration * Time.fixedDeltaTime);
     }
-
 
     public void TakeDamage(int damage)
     {
@@ -59,7 +86,7 @@ public class PlayerController : MonoBehaviour
     public void Heal(int amount)
     {
         currentLives += amount;
-        if (currentLives > maxLives) currentLives = maxLives; // Не даем превысить максимум
+        if (currentLives > maxLives) currentLives = maxLives;
         Debug.Log("Полечение! Жизней: " + currentLives);
     }
 
@@ -71,12 +98,11 @@ public class PlayerController : MonoBehaviour
 
     public void ResetSpeed()
     {
-        maxSpeed /= 1.5f; // Возвращаем исходную скорость (если было ускорение)
+        maxSpeed /= 1.5f;
     }
 
     private void RestartLevel()
     {
-        // Перезапускаем текущую сцену
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }
